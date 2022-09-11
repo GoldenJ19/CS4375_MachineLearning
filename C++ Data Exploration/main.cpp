@@ -15,37 +15,124 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <tgmath.h>
 
 using namespace std;
 
 const string inputFileName = "Boston.csv";
 const int vecSize = 1000;
 
-bool PrintStats( vector<double> data ) {
-    // 1. Sum of numeric vector
-
-
-    // 2. Mean of numeric vector
-
-
-    // 3. Median of numeric vector
-
-
-    // 4. Range of numeric vector
-
-
+/**
+ * Reused vector sort function created by me in CS 2337.
+ * @tparam T
+ * @param vect
+ * @return reference to sorted vector
+ */
+template<typename T>
+void SortVector(vector<T> &vect){
+    bool changeMade;
+    do {
+        changeMade = false;
+        for( int i = 0; i < vect.size()-1; i++ ) {
+            if( vect[i] > vect[i+1] ) {
+                T temp = vect[i];
+                vect[i] = vect[i+1];
+                vect[i+1] = temp;
+                changeMade = true;
+            }
+        }
+    } while(changeMade);
 }
 
-bool PrintCovariance( vector<double> rm, vector<double> medv ) {
-    // 5. Covariance between rm and medv
+/**
+ * @param data
+ * @return vector with stats in the following order: sum, mean, median, lower range, upper range
+ */
+vector<double> PrintStats( vector<double> data ) {
+    vector<double> sortedData(data.size());
+    // Loop and gather info all-in-one
+    double sum = 0, mean = 0 , median = 0, range_low = INT32_MAX, range_high = -1;
+    for( int i = 0; i < data.size(); i++ ) {
+        sum += data.at(i); // calculate sum
+        range_low = data.at(i) < range_low ? data.at(i) : range_low; // calculate low range
+        range_high = data.at(i) > range_high ? data.at(i) : range_high; // calculate high range
+    }
+    mean = sum / data.size(); // calculate mean
 
+    // Insertion sort for median calculation
+    for( int i = 0; i < data.size(); i++ ) {
+        sortedData.at(i) = data.at(i); // copy vector data into to-be-sorted vector
+    }
+    SortVector(sortedData); // sort vector
+    median = sortedData.size() % 2 == 0
+            ? (sortedData.at(sortedData.size()/2) + sortedData.at(sortedData.size()/2)) / 2
+            : sortedData.at(sortedData.size()/2); // calculate median
 
+    /// 1. Print sum of numeric vector
+    cout << "Sum: " << sum << endl;
+
+    /// 2. Print mean of numeric vector
+    cout << "Mean: " << mean << endl;
+
+    /// 3. Print median of numeric vector
+    cout << "Median: " << median << endl;
+
+    /// 4. Print range of numeric vector
+    cout << "Range: " << range_low << "-" << range_high << endl;
+
+    // return statistics
+    return vector<double>{sum, mean, median, range_low, range_high};
 }
 
-bool PrintCorrelation( vector<double> rm, vector<double> medv ) {
-    // 6. Correlation between rm and medv
+/**
+ * @param rm
+ * @param medv
+ * @param mean_rm
+ * @param mean_medv
+ * @return covariance of rm and medv
+ */
+double PrintCovariance( vector<double> rm, vector<double> medv, double mean_rm, double mean_medv ) {
+    /// 5. Covariance between rm and medv
+    // calculate upper portion of covariance formula
+    double upper = 0, lower = rm.size()-1;
+    for( int i = 0; i < rm.size(); i++ ) {
+        upper += ( rm[i] - mean_rm ) * ( medv[i] - mean_medv );
+    }
+    double covariance = upper / lower; // calculate covariance
 
+    // print covariance
+    cout << "Covariance: " << covariance << endl;
 
+    // return statistic
+    return covariance;
+}
+
+/**
+ * @param rm
+ * @param medv
+ * @param mean_rm
+ * @param mean_medv
+ * @param covariance
+ * @return correlation of rm and medv
+ */
+double PrintCorrelation( vector<double> rm, vector<double> medv, double mean_rm, double mean_medv, double covariance ) {
+    /// 6. Correlation between rm and medv
+    // calculate standard deviations
+    double dev_rm = 0, dev_medv = 0;
+    for( int i = 0; i < rm.size(); i++ ) {
+        dev_rm +=  pow(rm[i] - mean_rm, 2);
+        dev_medv +=  pow(medv[i] - mean_medv, 2);
+    }
+    dev_rm = sqrt(dev_rm/rm.size());
+    dev_medv = sqrt(dev_medv/medv.size());
+
+    double correlation = covariance / (dev_rm * dev_medv); // calculate correlation
+
+    // print correlation
+    cout << "Correlation: " << correlation << endl;
+
+    // return statistic
+    return correlation;
 }
 
 int main() {
@@ -97,12 +184,15 @@ int main() {
 
     /// Calculate statistics (based off of instructions)
     // Print general statistics
-    PrintStats(rm);
-    PrintStats(medv);
+    cout << endl << "rm:" << endl;
+    vector<double> stats_rm = PrintStats(rm);
+    cout << endl << "medv:" << endl;
+    vector<double> stats_medv = PrintStats(medv);
+    cout << endl;
 
     // Print covariance & correlation statistics
-    PrintCovariance(rm, medv);
-    PrintCorrelation(rm, medv);
+    double covariance = PrintCovariance(rm, medv, stats_rm[1], stats_medv[1]);
+    PrintCorrelation(rm, medv, stats_rm[1], stats_medv[1], covariance);
 
     // Exit program
     cout << endl << "Programing operations complete. Exiting..." << endl;
