@@ -7,9 +7,10 @@
  * Dependencies:    Boston.csv
  *
  * Functions:       main()
+ *                  SortVector(vector<typename T>)
  *                  PrintStats(vector<double>)
- *                  PrintCovariance(vector<double>, vector<double>)
- *                  PrintCorrelation(vector<double>, vector<double>)
+ *                  PrintCovariance(vector<double>, vector<double>, double, double)
+ *                  PrintCorrelation(vector<double>, vector<double>, double, double, double)
  */
 
 #include <iostream>
@@ -135,6 +136,9 @@ double PrintCorrelation( vector<double> rm, vector<double> medv, double mean_rm,
     return correlation;
 }
 
+/**
+ * @return exit codes: 0 = successful, 1 = file reading error
+ */
 int main() {
     /// Read in Boston.csv file
     // Declare file stream variables
@@ -194,7 +198,7 @@ int main() {
     double covariance = PrintCovariance(rm, medv, stats_rm[1], stats_medv[1]);
     PrintCorrelation(rm, medv, stats_rm[1], stats_medv[1], covariance);
 
-    // Exit program
+    /// Exit program
     cout << endl << "Programing operations complete. Exiting..." << endl;
     return 0;
 }
