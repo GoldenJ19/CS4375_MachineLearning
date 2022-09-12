@@ -47,27 +47,29 @@ void SortVector(vector<T> &vect){
 
 /**
  * @param data
- * @return vector with stats in the following order: sum, mean, median, lower range, upper range
+ * @return vector with stats in the following order: sum, mean, median, range
  */
 vector<double> PrintStats( vector<double> data ) {
+    /// Calculate stats
     vector<double> sortedData(data.size());
     // Loop and gather info all-in-one
-    double sum = 0, mean = 0 , median = 0, range_low = INT32_MAX, range_high = -1;
+    double sum = 0, mean = 0 , median = 0, range = 0;
     for( int i = 0; i < data.size(); i++ ) {
         sum += data.at(i); // calculate sum
-        range_low = data.at(i) < range_low ? data.at(i) : range_low; // calculate low range
-        range_high = data.at(i) > range_high ? data.at(i) : range_high; // calculate high range
     }
     mean = sum / data.size(); // calculate mean
 
-    // Insertion sort for median calculation
+    // Insertion sort for median & range calculation
+    // copy vector data into to-be-sorted vector
     for( int i = 0; i < data.size(); i++ ) {
-        sortedData.at(i) = data.at(i); // copy vector data into to-be-sorted vector
+        sortedData.at(i) = data.at(i);
     }
     SortVector(sortedData); // sort vector
+
     median = sortedData.size() % 2 == 0
             ? (sortedData.at(sortedData.size()/2) + sortedData.at(sortedData.size()/2)) / 2
             : sortedData.at(sortedData.size()/2); // calculate median
+    range = sortedData.back() - sortedData.front(); // calculate range
 
     /// 1. Print sum of numeric vector
     cout << "Sum: " << sum << endl;
@@ -79,10 +81,10 @@ vector<double> PrintStats( vector<double> data ) {
     cout << "Median: " << median << endl;
 
     /// 4. Print range of numeric vector
-    cout << "Range: " << range_low << "-" << range_high << endl;
+    cout << "Range: " << range << endl;
 
     // return statistics
-    return vector<double>{sum, mean, median, range_low, range_high};
+    return vector<double>{sum, mean, median, range};
 }
 
 /**
