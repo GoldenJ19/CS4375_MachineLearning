@@ -13,6 +13,6 @@ Notable file(s) for this assignment include the [results of this assignment](C++
 
 ## Assignment 2 - Linear Models
 
-This assignment involves ...
+This assignment involves selecting two medium-sized data sets from online sources, performing data cleaning and exploration on them, and performing machine learning on the data sets using linear models. From there, we are tasked with analyzing the performance of each linear model, and drawing comparisons between them.
 
 Notable file(s) for this assignment include the write-ups for the [Regression](Linear%20Models/Regression.pdf) ([html format](Linear%20Models/Regression.html)) supervised learning models, and the [Classification](Linear%20Models/Classification.pdf) ([html format](Linear%20Models/Classification.html)) supervised learning models, as well as the R Markdown files written for the [Regression](Linear%20Models/Regression.Rmd) portion of the assignment, as well as the [Classification](Linear%20Models/Classification.Rmd) portion of the assignment.
