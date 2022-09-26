@@ -3,10 +3,16 @@
 
 This is a repository (sub-portfolio) containing all the programs created for the class, Machine Learning during my 4th year of college.
 
-You can see an overview of the topic of machine learning [here](Overview/Overview%20of%20ML.pdf).
+Notable file(s) include an [overview of the topic of machine learning](Overview/Overview%20of%20ML.pdf), which may help give context to this portfolio and its contents.
 
 ## Assignment 1 - C++ Data Exploration
 
 This assignment involves recreating the functionality of various R functions in C++.
 
-You can see the document detailing the results of this assignment [here](C++%20Data%20Exploration/Data%20Exploration%20Writeup.pdf), and the code written for the assignment [here](C++%20Data%20Exploration/main.cpp).
+Notable file(s) for this assignment include the [results of this assignment](C++%20Data%20Exploration/Data%20Exploration%20Writeup.pdf), as well as the [code written for the assignment](C++%20Data%20Exploration/main.cpp).
+
+## Assignment 2 - Linear Models
+
+This assignment involves ...
+
+Notable file(s) for this assignment include the write-ups for the [Regression](Linear%20Models/Regression.pdf) ([html format](Linear%20Models/Regression.html)) supervised learning models, and the [Classification](Linear%20Models/Classification.pdf) ([html format](Linear%20Models/Classification.html)) supervised learning models, as well as the R Markdown files written for the [Regression](Linear%20Models/Regression.Rmd) portion of the assignment, as well as the [Classification](Linear%20Models/Classification.Rmd) portion of the assignment.
