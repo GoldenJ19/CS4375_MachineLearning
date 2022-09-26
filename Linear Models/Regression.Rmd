@@ -1,0 +1,261 @@
+---
+title: "Regression"
+author: "Justin Hardy & Benji Frenkel"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Description
+
+Linear Regression is a concept in statistics that is powerful in the context of machine learning. Its goal is to determine how much we can expect a given y-value to change for every change in the x-value. Within the R language, we can build Linear Regression Models that will not only determine this linear relationship between two (or more) variables in a given data set, but also provide us with various useful information to help us gauge how strong of a relationship these variables have by providing us with useful coefficients.
+
+The main strength of Linear Regression is that it's both incredibly simple and powerful. This is especially true for data sets that follow a linear pattern.
+
+The main weakness of Linear Regression is that it has considerably high bias, at the expense of having low variance. This is purely due to the fact that it tries to fit the data to a linear shape, which can become problematic when the data being used doesn't always follow a linear shape.
+
+In this assignment, we'll explore linear regression in detail. I've picked out a data set online that consists of web data collected on Online Shoppers for, what is presumably, a retail store.
+
+## Modeling
+
+### Data Set Setup
+
+Starting out, we'll load our data set into R.
+
+```{r, echo=TRUE}
+# data set input
+ShopperIntentions <- read.csv("online_shoppers_intention.csv")
+```
+
+I'll go ahead and create a factor for various qualitative values, that I feel like I'll want to use later in the assignment.
+
+```{r, echo=TRUE}
+# data set cleanup
+ShopperIntentions$Month <- factor(ShopperIntentions$Month, levels=c("Jan", "Feb", "Mar", "Apr", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+ShopperIntentions$VisitorType <- factor(ShopperIntentions$VisitorType, levels=c("Returning_Visitor", "New_Visitor", "Other"))
+ShopperIntentions$Weekend <- factor(ShopperIntentions$Weekend)
+```
+
+### Dividing Into Train / Test
+
+Next, we'll split the data into train & test as per the machine learning process.
+
+```{r, echo=TRUE}
+# train/test division
+i <- sample(1:nrow(ShopperIntentions), nrow(ShopperIntentions)*0.8, replace=FALSE)
+train <- ShopperIntentions[i,]
+test <- ShopperIntentions[-i,]
+```
+
+### Data Exploration / Graphing
+
+We'll be exploring the data within our train data set, which makes up 80% of the shopper intentions data set. The following are various details/statistics about the data set itself:
+
+#### Rows / Columns Info:
+```{r, echo=FALSE}
+str(train)
+```
+
+#### Sample of First Five Rows:
+```{r, echo=FALSE}
+head(train, n=5)
+```
+
+#### Sample of Last Five Rows:
+```{r, echo=FALSE}
+tail(train, n=5)
+```
+
+#### NA Count:
+```{r, echo=FALSE}
+print(paste('Number of NAs:', sum(is.na(train)))) # Print na count
+```
+
+#### General Summary:
+```{r, echo=FALSE}
+summary(train)
+```
+
+#### Graphs:
+
+```{r, echo=FALSE}
+# Exit Rates in relation to Bounce Rates
+plot(train$BounceRates, train$ExitRates, xlab="Bounce Rate", ylab="Exit Rate")
+```
+
+```{r, echo=FALSE}
+# Exit Rates in relation to Bounce Rates
+plot(train$VisitorType, train$ExitRates, xlab="Visitor Type", ylab="Exit Rate")
+```
+
+### Simple Linear Regression Model
+
+<!-- Creation & Summary -->
+We'll start by making a simple linear regression model, where we use the ExitRates column as our target, and the BounceRates column as our predictor. ExitRates simply describes the percentage of paegs that were the last visited, while BounceRates describes the rate at which a users enter the site from that page and also leave from that same page. We'll then generate a summary of the model, so we can see the residuals and what R thinks about the correlation between the two columns.
+
+```{r, echo=TRUE}
+# linear regression model
+lm_simple <- lm(ExitRates~BounceRates, data=train)
+
+# summary
+summary(lm_simple)
+```
+
+In the above summary, we can see that our R-squared value comes out to a value of 0.8336. Of course, we'd like this to be as close as possible to 1, so this isn't necessarily bad, but could be better. Looking at our coefficients, R seems to think this predictor is good for the model, as indicated by the significant code, which gave it three *'s. We can also observe that our degree of freedom is fairly high, with a low RSE.
+
+<!-- Plotting -->
+Now that we've created the model and looked at the summary of it, we'll plot the residuals.
+
+```{r, echo=FALSE}
+# residuals
+par(mfrow=c(2,2))
+plot(lm_simple)
+```
+
+<!-- Explanation of Residuals -->
+We'll go through each plot in detail, so that we can better understand what these plots tell us about the data.
+
+<ul>
+  <!-- Plot 1 (T-L) -->
+  <li>
+    Residuals vs Fitted
+  </li>
+  <ul>
+    <li>
+      This plot aims to show us whether or not there exists a non-linear relationship between the residuals.
+    </li>
+    <li>
+      In this case, there doesn't seem to be any distinctive pattern in the plot, as the red-line indicated that there is a fairly linear relationship between the residuals and their fitted values.
+    </li>
+    <li>
+      If we're being generous, their may be a slight upwards parabola formed as there seems to be a slight rise near the median of the data. But it's fairly safe to assume we have a linear relationship here.
+    </li>
+  </ul>
+  
+  <!-- Plot 2 (T-R) -->
+  <li>
+    Normal Q-Q
+  </li>
+  <ul>
+    <li>
+      This plot aims to show us whether or not he residuals are normally distributed. Generally, we want the residuals to be lined up neatly in a straight line. Generally, if this is close-enough to the case, the dashed line will be lined up nicely with the residuals.
+    </li>
+    <li>
+      It appears this is the case, with the exception of a couple of outliers between the theoretical quantiles between -1 and -2. Probably nothing to worry about, however.
+    </li>
+  </ul>
+  
+  <!-- Plot 3 (B-L) -->
+  <li>
+    Scale-Location
+  </li>
+  <ul>
+    <li>
+      This plot aims to show us whether or not the residuals spread equally along the predictor's ranges. We want this plot's red line to be horizontal, with fairly equally spread points outside of it.
+    </li>
+    <li>
+      We can observe a slight dip at the beginning of our plot, but for the most part, the plot's red line remains fairly horizontal & straight. And regardless, the points are spread fairly equally in relation to the line, up until we get to fitted values of roughly 0.075~. At this point, we notice that as the value grows, the spread increases quite notably.
+    </li>
+  </ul>
+  
+  <!-- Plot 4 (B-R) -->
+  <li>
+    Residuals vs Leverage
+  </li>
+  <ul>
+    <li>
+      This plot aims to help us understand whether or not our plot contains influential cases, based off of whether or not our standardized residuals lie outside of Cook's Distance.
+    </li>
+    <li>
+      We can observe that there aren't any dashed red lines denoting the 0.5 and 1 marks of Cook's Distance, and that our plot points lie very closely in the center of the Cook's Distance area. This simply means that not many of our points are influential to the regression. In other words, there are no influential cases.
+    </li>
+  </ul>
+</ul>
+
+### Multiple Linear Regression Model
+
+The next linear regression model we'll create will use multiple predictors to predict the same target, ExitRates. We'll be adding the various Duration column values to the line-up of predictors, and seeing how this improves the model.
+
+```{r, echo=TRUE}
+# linear regression model
+lm_multiple <- lm(ExitRates~BounceRates+Administrative_Duration+Informational_Duration+ProductRelated_Duration, data=train)
+
+# summary
+summary(lm_multiple)
+```
+
+```{r, echo=FALSE}
+# residuals
+par(mfrow=c(2,2))
+plot(lm_multiple)
+```
+
+The main change I'd like to note about the residuals is that now, we're able to not only observe the Cook's Distance markers, but also now we have a case that lies outside the Cook's Distance area (marked 8072). Although, for divisons of train/test, this won't be the case, we can still see outliers that lie close to the Cook's Distance dashed lines. We can also observe pretty significant dips at the beginning of the Residuals vs Fitted and Scale-Location plots, the latter forming - then breaking - the shape of a parabola. We can interpret this as there not being a linear relationship between the residuals and their fitted values for fitted values less than 0, to which afterwards the line straightens up significantly.
+
+Additionally, we can see from the summary that Informational Duration isn't too great of a predictor for this model, so it may be best to remove it if we're looking at improving the model. Our R-squared on the other hand has increased considerably!
+
+### Final Linear Regression Model
+
+We'll create one final linear regression model that will include various other columns as predictors. The most notable additions are columns pertaining to special days (holidays/weekends), and whether or not the visitor is new.
+
+```{r, echo=TRUE}
+# linear regression model
+lm_final <- lm(ExitRates~BounceRates+Administrative_Duration+ProductRelated_Duration+PageValues+VisitorType+Weekend+SpecialDay, data=train)
+
+# summary
+summary(lm_final)
+```
+
+```{r, echo=FALSE}
+# residuals
+par(mfrow=c(2,2))
+plot(lm_final)
+```
+
+Going over the changes in brief detail, we see improvements to our R-squared value by including these predictors, at the cost of a drop in our RSE.
+
+### Results Comparison / Analysis
+
+It should be relatively clear that the third & final linear regression model created is the best model here. Simply because the model utilizes various other predictive factors to improve on the accuracy of the already accurate first/simple model that preceded it. As noted, the first model created was simple, but also incredibly accurate at its base due to the strong correlation between the exit and bounce column. Logically speaking, we can make a number of assumptions about the user's exit rates given the bounce rate.
+
+Of course, one could argue that the difference in accuracies of the models is almost negligible, therefore the first simple model we created is the best to use. However, I'd argue the difference between the first and last - simple and final - models are notable enough to warrant use of the final model over the simpler one. After all, it'd likely transfer over better outside of the context of our data set.
+
+### Metrics Correlation and MSE
+
+This is reserved for predictions and evaluations on metrics correlation and MSE. We can also observe that the Residuals vs Leverage graph has more of an upwards parabola shape past 0.01 leverage.
+
+```{r, echo=TRUE}
+# predictions on test data
+pred_simple <- predict(lm_simple, newdata=test)
+pred_multiple <- predict(lm_multiple, newdata=test)
+pred_final <- predict(lm_final, newdata=test)
+```
+
+```{r, echo=FALSE}
+# metrics
+## simple
+corr_simple <- cor(pred_simple, test$ExitRates)
+mse_simple <- mean((pred_simple - test$ExitRates)^2)
+rmse_simple <- sqrt(mse_simple)
+cat("METRICS:")
+cat("Simple Linear Regression Model:", paste("Correlation: ", corr_simple), paste("MSE: ", mse_simple), paste("RSE: ", rmse_simple), sep='\n')
+
+## multiple
+corr_multiple <- cor(pred_multiple, test$ExitRates)
+mse_multiple <- mean((pred_multiple - test$ExitRates)^2)
+rmse_multiple <- sqrt(mse_multiple)
+cat("Multiple Linear Regression Model:", paste("Correlation: ", corr_multiple), paste("MSE: ", mse_multiple), paste("RSE: ", rmse_multiple), sep='\n')
+
+## final
+corr_final <- cor(pred_final, test$ExitRates)
+mse_final <- mean((pred_final - test$ExitRates)^2)
+rmse_final <- sqrt(mse_final)
+cat("Final Linear Regression Model:", paste("Correlation: ", corr_final), paste("MSE: ", mse_final), paste("RSE: ", rmse_final), sep='\n')
+```
+
+Now that we have all of the metrics, let's compare between the three models!
+
+We can see pretty clearly that we make improvements to our correlation values with each linear model. The correlation was already high to begin with in our linear regression model, as there is a strong base correlation between our exit and bounce rate. However, it's made clear through the additions of other relevant data as predictors that the model can notably improve its prediction accuracy.
+
+The same explanation can be applied to our MSE & RSE values. As there is a notable decrease in the mean error of the model.

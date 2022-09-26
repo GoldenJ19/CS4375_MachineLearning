@@ -1,0 +1,190 @@
+---
+title: "Classification"
+author: "Justin Hardy & Benji Frenkel"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r, echo=FALSE}
+# load necessary libaries
+library(e1071)
+library(lattice)
+library(ggplot2)
+library(caret)
+```
+
+## Description
+
+Linear Models, in the context of Classification, aim to separate observations into two separate regions so that outputs can be classified in a binary manner. For us to begin this assignment, it's important to understand the strengths and weaknesses of Linear Models for Classification.
+
+There are a number of Generalized Linear Models (GLMs) which can help us model our data using classification, which we will explore in this assignment. Particularly, we'll be exploring a data set through the use of the Logistic Regression and Naïve Bayes Models.
+
+Like Linear Regression, Logistic Regression focuses on predicting for a single target variable, but differs in that it must target a qualitative value. It's very inexpensive and keeps the classes linearly separable, but lacks the flexibility required for capturing non-linear decision boundaries.
+
+Naïve Bayes, on the other hand, has the same goals as Linear Regression, but functions far differently. It will make the naïve assumption that every predictor is independent of one another, allowing for easy implementation and interpretability, at the cost of performance... generally.
+
+Both linear models will be used on a data set we selected off of the internet. The data set consists of data related to a bank's campaigns to get clients to subscribe a term deposit.
+
+## Modeling
+
+### Data Set Setup
+
+Starting out, we'll load our data set into R.
+
+```{r, echo=TRUE}
+# data set input
+BankMarketing <- read.csv("bank-additional-full.csv")
+```
+
+We'll then create a factor for various qualitative values.
+
+```{r, echo=TRUE}
+# data set cleanup
+BankMarketing$y <- factor(BankMarketing$y)
+BankMarketing$poutcome <- factor(BankMarketing$poutcome)
+BankMarketing$contact <- factor(BankMarketing$contact)
+BankMarketing$housing <- factor(BankMarketing$housing)
+BankMarketing$loan <- factor(BankMarketing$loan)
+BankMarketing$default <- factor(BankMarketing$default)
+BankMarketing$marital <- factor(BankMarketing$marital)
+BankMarketing$education <- factor(BankMarketing$education)
+BankMarketing$day_of_week <- factor(BankMarketing$day_of_week)
+BankMarketing$month <- factor(BankMarketing$month)
+BankMarketing$previously_contacted <- as.factor(ifelse(BankMarketing$pdays==999, "no", "yes"))
+```
+
+### Diving Into Train / Test
+
+Diving the data into train/test...
+
+```{r}
+# train/test division
+i <- sample(1:nrow(BankMarketing), nrow(BankMarketing)*0.8, replace=FALSE)
+train <- BankMarketing[i,]
+test <- BankMarketing[-i,]
+```
+
+### Data Exploration / Graphing
+
+We'll be exploring the data within our train data set, which makes up 80% of the shopper intentions data set. The following are various details/statistics about the data set itself:
+
+#### Rows / Columns Info:
+```{r, echo=FALSE}
+str(train)
+```
+
+#### Sample of First Five Rows:
+```{r, echo=FALSE}
+head(train, n=5)
+```
+
+#### Sample of Last Five Rows:
+```{r, echo=FALSE}
+tail(train, n=5)
+```
+
+#### NA Count:
+```{r, echo=FALSE}
+print(paste('Number of NAs:', sum(is.na(train)))) # Print na count
+```
+
+#### General Summary:
+```{r, echo=FALSE}
+summary(train)
+```
+
+Note that he "y" column dictates whether or not the client subscribed a term deposit. Also, that the client's age may not actually have much consistent influence on whether or not the client subscribes.
+
+#### Graphs:
+```{r, echo=FALSE}
+# Age in relation to Campaign Outcome
+cdplot(train$age, train$poutcome, xlab="Age", ylab="Campaign Outcome")
+```
+
+```{r, echo=FALSE}
+# Contact Method in relation to whether the Client Subscribed or not
+plot(train$contact, train$y, xlab="Contact Method", ylab="Client Subscribed?")
+```
+
+### Logistic Regression Model
+
+We'll proceed now by making a logistic regression model, where we use the y column as our target, and various other columns as our predictors. The "y" column is our target as, in this hypothetical scenario, the bank wants to predict what clients their campaigns are getting to subscribe for a term deposit.
+
+We'll then generate a summary of the model, so we can see the residuals and what R thinks about the correlation between the predictors with the target.
+
+```{r, echo=TRUE}
+# logistic regression model
+glm <- glm(y~poutcome+duration+contact+previously_contacted+emp.var.rate+cons.price.idx+cons.conf.idx, data=train, family=binomial)
+
+# summary
+summary(glm)
+```
+
+Looking through the summary, we can observe that R believes each of our chosen predictors to be effective predictors for the model, as each are getting a triple '*' significant code. We can also see that our null deviance and residual deviance are fairly high, which is rather concerning. However, this may be in relation to the data on the model. What is important to note that is a good sign, is that the residual deviance is significantly lower than that of the null deviance. This is specifically something we want to see, as the larger the difference is between the two, the better. But most importantly, keeping the residual deviance lower than the null deviance is very necessary. As not having either or can be a clear sign that the model doesn't explain the data very well.
+
+The AIC and Fishing Scoring iteration count don't seem to be as applicable in what we're trying to accomplish here. But the AIC does also seem considerably high, which may indicate that there exist many other models that will better explain the data. Just like the deviances - the smaller, the better.
+
+### Naïve Bayes Model
+
+Next, we'll create a naïve bayes model for the data. We'll keep y as our target variable, but instead, use the poutcome, duration, contact, and previously_contacted variables as predictors. The main reason we're removing a lot of the predictors used in Logistic Regression is due Naive Bayes assuming the predictors are conditionally independent of one another. Therefore, variables that may not be consistent with this have been removed.
+
+```{r, echo=TRUE}
+# naïve bayes model
+nb <- naiveBayes(y~poutcome+duration+contact+previously_contacted, data=train)
+
+#summary
+nb
+```
+
+Observing the probabilities from the summary of our Naïve Bayes Model, we can see that our model indicates that we have roughly an 11% chance of getting a positive value for our target (the "yes" result). We can see how the Naïve Bayes Model is coming to this conclusion through its breakdown of each conditional probability. Generally, we want to avoid values that end up being comparable to that of a coin toss (even splits between each predictor value). Fortunately, this isn't the case with any of our values. Additionally, there is a pretty sparse difference in quantitative value within the duration's conditional mean values.
+
+### Model Predictions
+
+#### For Logistic Regression Model:
+
+```{r, echo=TRUE}
+# glm predictions
+probs_glm <- predict(glm, newdata=test, type="response")
+pred_glm <- ifelse(probs_glm>0.5, 2, 1)
+acc_glm <- mean(pred_glm==as.integer(test$y))
+```
+
+```{r, echo=FALSE}
+# glm printout
+table(pred_glm, as.integer(test$y))
+cat(paste("Accuracy: ", acc_glm))
+```
+
+#### For Naïve Bayes Model:
+
+```{r, echo=TRUE}
+# nb predictions
+pred_nb <- predict(nb, newdata=test, type="class")
+```
+
+```{r, echo=FALSE}
+# nb printout
+confusionMatrix(pred_nb, test$y, positive="yes")
+```
+
+### Naïve Bayes Model vs Logistic Regression Model
+
+As we can see from the accuracy of predictions on this data set, the Logistic Regression Model is getting a slightly higher accuracy over Naïve Bayes. To understand why this is the case with this data set, we need to understand the strengths & weaknesses of both Logistic Regression & Naïve Bayes.
+
+Logistic Regression is strong in that it does well in separating classes when they are linearly separable, and gives a nice output in probabilities that can be analyzed conveniently. It's also incredibly inexpensive. However, it's weak due to it tending to underfit data, due to its lack of flexibility in making non-linear decisions.
+
+Naïve Bayes is strong in that it works well this smaller data sets and has high interpretability. It's also great at handling high dimensions of data. However, it's weakness lies with the fact that it tends to get outperformed for large data sets by other classifiers. The algorithm is naïve in the assumptions it makes, as well. When the predictors are not independent, the algorithm will assume they are, impacting the algorithm's performance.
+
+The data set we chose is rather large in size; triple that of the minimum we were asked to find online (10,000). Additionally, when we'd initially made the naïve bayes model, it used all the predictors that were used in the logistic regression model. Needless to say, the results were worse than the one we ended with, due to the algorithm assuming all the predictors are independent.
+
+### Classification Metrics
+
+Throughout this assignment, we've used various classification metrics to gauge how the algorithm is performing on the data set. The last part of this write-up will discuss the significance of each of these metrics in the scope of classification.
+
+In the Logistic Regression Model, the summary provided us with metrics similar to Linear Regression. This included the deviance residuals, as well as significance codes for the coefficients gathered on each predictor in the model. Since we went over what both mean in the Regression portion of the assignment, we'll skip over explaining them.
+
+Where it differs from Linear Regression is in the bottom-most part of the summary. We get interesting details about the model's Null Deviance, as well as the Residual Deviance. The null deviance describes how little the model fits the data, in consideration of only the intercept, while the residual deviance describes how little the entire model fits the data. Generally, we're wanting the residual deviance to be much lower than the null deviance, and for both of these to be as low as possible. We also are given the AIC, standing for Akaike Information Criterion, which helps us draw comparisons between models. Generally, the lower this value is, the better. It'll be closest to an optimal value when the model isn't very complex, and has few predictors. Lastly, we get a count for Fisher Scoring iterations, which can be useful when solving the maximum likelihood problem.
+
+In the Naïve Bayes Model, the summary provided us with the A-Priori Probabilities of the target variable, as well as all of the Conditional Probabilities of each predictor in relation to the target. The A-Prioi Probabilities simply tell us the general probability of each value of the target variable. In the model we made, we can see that we generally have about an 11% chance of getting someone to subscribe through our campaigns. We can break this down further by looking at our Conditional Probabilities, which break down the probabilities of getting each value of the target variable for each value of the particular predictor. When given a quantitative value, it will simply use the mean of the values that correspond. These are very useful in interpreting the model's basis for predicting, but the main drawback here, of course, is in the fact that it'll apply all of these conditional probabilities to all other variations of data outside of this data set. Additionally, it treats the predictors completely independent of one another, which can affect prediction accuracy with high predictor counts.
