@@ -12,7 +12,7 @@ This assignment involves recreating the functionality of various R functions in 
 
 Notable File(s): <br/>
 • [Overview](C++%20Data%20Exploration/Data%20Exploration%20Writeup.pdf) <br/>
-• [Code](C++%20Data%20Exploration/main.cpp). <br/>
+• [Code](C++%20Data%20Exploration/main.cpp) <br/>
 
 ## Assignment 2 - Linear Models
 
