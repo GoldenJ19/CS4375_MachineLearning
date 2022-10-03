@@ -24,7 +24,7 @@ Notable File(s): <br/>
 • [Code - Regression](Linear%20Models/Regression.Rmd) <br/>
 • [Code - Classification](Linear%20Models/Classification.Rmd) <br/>
 
-## Assignments 3 - Machine Learning from Scratch
+## Assignment 3 - Machine Learning from Scratch
 
 This assignment involves implementing the Logistic Regression and Naive Bayes Models in C++ from Scratch, and using the models to predict off of the titanic data set.
 
