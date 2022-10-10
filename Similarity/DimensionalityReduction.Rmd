@@ -1,0 +1,177 @@
+---
+title: "Dimensionality Reduction"
+author: "Justin Hardy, Fernando Colman, Linus Fackler, Isabelle Villegas"
+coauthor: null
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+set.seed(1234)
+library(rlang)
+library(ggpubr)
+library(caret)
+library(MASS)
+library(ggplot2)
+library(ggfortify)
+
+library(dplyr)
+library(stringr)
+library(class)
+library(rpart)
+library(tree)
+```
+
+# The Data Set
+
+Starting by reading in the data set. The data set we'll use for the assignment consists of data collected by an airline organization, over their customers' submitted satisfaction surveys, as well as relevant information about their flight and demographic.
+
+If you want to see the data set for yourself, you access it [here](Invistico_Airline.csv).
+
+```{r}
+data <- read.csv("airline_data.csv")
+```
+
+# Cleaning Up The Data Set
+
+Cleaning up data set for logistic regression, by converting qualitative columns into factors.
+
+```{r}
+
+# Factor columns
+data$satisfaction <- factor(data$satisfaction) # satisfaction 
+data$Gender <- factor(data$Gender) # gender 
+data$Customer.Type <- factor(data$Customer.Type) # customer
+data$Type.of.Travel <- factor(data$Type.of.Travel) # travel
+data$Class <- factor(data$Class) # class
+
+# Normalize factor names
+levels(data$satisfaction) <- c("Dissatisfied", "Satisfied")
+levels(data$Customer.Type) <- c("Disloyal", "Loyal")
+levels(data$Type.of.Travel) <- c("Business", "Personal")
+
+# Create new cleaned CustomerData data frame for full factoring (linear regression)
+CustomerData_factored <- data
+
+# Continue factoring numeric finite columns
+for(i in 8:21) { 
+CustomerData_factored[,i] <- factor(CustomerData_factored[,i], levels=c(0,1,2,3,4,5)) # out-of-5 ratings 
+}
+
+# Remove na rows
+data_complete <- data[complete.cases(data),]
+data <- CustomerData_factored[complete.cases(CustomerData_factored),]
+
+```
+
+# Dividing Into Train/Test
+
+Dividing the data set into train/test
+
+We are also using the preProcess function to find the principal components from the data
+
+```{r}
+# 80/20 split
+split <- round(nrow(data)*0.8)
+training <- data[1:split, ]
+test <- data[(split+1):nrow(data),]
+```
+
+
+```{r}
+summary(training)
+```
+## Principal Component Analysis
+Running PCA on flight data
+
+```{r}
+# preProcessing the training data in order to find the principal components
+pca_out <- preProcess(training[,1:ncol(training)], method=c("center", "scale", "pca"))
+pca_out
+```
+## Plotting PC1 and PC2 for PCA Model
+
+```{r}
+train_pc <- predict(pca_out, training[, 1:ncol(training)])
+test_pc <- predict(pca_out, test[,])
+plot(test_pc$PC1, test_pc$PC2, pch=c(23,21,22)[unclass(test_pc$Class)], bg=c("red","green","blue")[unclass(test$Class)])
+```
+
+## 
+
+```{r}
+train_df <- data.frame(train_pc$PC1, train_pc$PC2, training$Class)
+test_df <- data.frame(test_pc$PC1, test_pc$PC2, test$Class)
+
+pred <- knn(train=train_df[,1:2], test=test_df[,1:2], cl=train_df[,3], k=3)
+mean(pred==test$Class)
+```
+The accuracy is pretty low for PCA, although I can imagine it may be because of the overlapping data, which would cause the accuracy to be a lot lower.
+
+
+## Linear Discriminant Analysis
+
+```{r}
+lda1 <- lda(Class~satisfaction+Gender+Customer.Type+Type.of.Travel, data=training)
+coef(lda1)
+lda1$means
+
+## Plotting LD1 and LD2
+
+ggplotLDAPrep <- function(x){
+  if (!is.null(Terms <- x$terms)) {
+    data <- model.frame(x)
+    X <- model.matrix(delete.response(Terms), data)
+    g <- model.response(data)
+    xint <- match("(Intercept)", colnames(X), nomatch = 0L)
+    if (xint > 0L) 
+      X <- X[, -xint, drop = FALSE]
+  }
+  means <- colMeans(x$means)
+  X <- scale(X, center = means, scale = FALSE) %*% x$scaling
+  rtrn <- as.data.frame(cbind(X,labels=as.character(g)))
+  rtrn <- data.frame(X,labels=as.character(g))
+  return(rtrn)
+}
+
+# Plotting LD1 and LS2
+fitGraph <- ggplotLDAPrep(lda1)
+ggplot(fitGraph, aes(LD1,LD2, color=labels))+geom_point()
+```
+
+
+```{r}
+lda1$means
+
+lda1
+```
+
+
+```{r}
+ggplot(fitGraph, aes(LD1,LD2, color=labels))+geom_point() + 
+    stat_ellipse(aes(x=LD1, y=LD2, fill = labels), alpha = 0.2, geom = "polygon")
+```
+
+
+```{r}
+glm <- glm(Class~satisfaction+Gender+Customer.Type+Type.of.Travel, data=training, family=binomial)
+
+# summary
+summary(glm)
+```
+
+
+```{r}
+lda_pred <- predict(lda1, newdata=test, type="class")
+#lda_pred$class
+```
+
+Calculating accuracy for LDA
+```{r}
+mean(lda_pred$class==test$Class)
+```
+The accuracy for LDA is a lot better, though that is probably because the graph for the LDA was a lot better with more defined classes.
