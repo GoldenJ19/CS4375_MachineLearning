@@ -1,0 +1,237 @@
+---
+title: "Classification"
+author: "Justin Hardy, Fernando Colman, Linus Fackler, Isabelle Villegas"
+coauthor: null
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r, echo=FALSE, message=FALSE}
+# settings/library imports
+set.seed(1234)
+library(dplyr)
+library(stringr)
+library(class)
+library(rpart)
+library(tree)
+```
+
+# The Data Set
+
+Starting by reading in the data set. The data set we'll use for the assignment consists of data collected by an airline organization, over their customers' submitted satisfaction surveys, as well as relevant information about their flight and demographic.
+
+If you want to see the data set for yourself, you access it [here](Invistico_Airline.csv).
+
+```{r, echo=TRUE}
+# Read data set
+CustomerData_raw <- read.csv("Invistico_Airline.csv")
+```
+
+# Cleaning Up The Data Set
+
+Cleaning up data set for logistic regression, by converting qualitative columns into factors.
+
+```{r, echo=TRUE}
+# Create new cleaned CustomerData data frame for scaling (kNN)
+CustomerData_scaled <- CustomerData_raw
+
+# Factor columns
+CustomerData_scaled$satisfaction <- factor(CustomerData_scaled$satisfaction) # satisfaction
+CustomerData_scaled$Gender <- factor(CustomerData_scaled$Gender) # gender
+CustomerData_scaled$Customer.Type <- factor(CustomerData_scaled$Customer.Type) # customer type
+CustomerData_scaled$Type.of.Travel <- factor(CustomerData_scaled$Type.of.Travel) # travel type
+CustomerData_scaled$Class <- factor(CustomerData_scaled$Class) # class
+
+# Normalize factor names
+levels(CustomerData_scaled$satisfaction) <- c("Dissatisfied", "Satisfied")
+levels(CustomerData_scaled$Customer.Type) <- c("Disloyal", "Loyal")
+levels(CustomerData_scaled$Type.of.Travel) <- c("Business", "Personal")
+
+# Create new cleaned CustomerData data frame for full factoring (linear regression)
+CustomerData_factored <- CustomerData_scaled
+
+# Continue factoring numeric finite columns
+for(i in 8:21) {
+  CustomerData_factored[,i] <- 
+    factor(CustomerData_factored[,i], levels=c(0,1,2,3,4,5)) # out-of-5 ratings
+}
+
+# Remove na rows
+CustomerData_scaled <- CustomerData_scaled[complete.cases(CustomerData_scaled),]
+CustomerData_factored <- CustomerData_factored[complete.cases(CustomerData_factored),]
+```
+
+# Dividing Into Train/Test
+
+Dividing the data set into train/test...
+
+```{r, echo=TRUE}
+# train/test division
+i <- sample(1:nrow(CustomerData_factored), nrow(CustomerData_factored)*0.8, replace=FALSE)
+train <- CustomerData_factored[i,]
+test <- CustomerData_factored[-i,]
+
+# scaling on separate data frame
+train_scaled <- CustomerData_scaled[i, 
+    names(CustomerData_scaled[i,])[sapply(CustomerData_scaled[i,], is.numeric)]]
+test_scaled <- CustomerData_scaled[-i, 
+    names(CustomerData_scaled[i,])[sapply(CustomerData_scaled[-i,], is.numeric)]]
+train_labels <- CustomerData_scaled[i, 1]
+test_labels <- CustomerData_scaled[-i, 1]
+
+means <- sapply(train_scaled, mean)
+stdvs <- sapply(train_scaled, sd)
+train_scaled <- scale(train_scaled, center=means, scale=stdvs)
+test_scaled <- scale(test_scaled, center=means, scale=stdvs)
+```
+
+Keep in mind that, we have also created a second version of this data set, split into a separate train/test, where the 0-5 Ratings (factored into 6 levels in the main version) are kept numerical/continuous for use in kNN classification.
+
+# Data Exploration
+
+## Structure
+
+Exploring the train data, we can see that each of our 0-5 Ratings were factored into levels of 6. The reason I opted to factor the data this way is because, although the values are numerical, they're a small finite set of integers. I also noticed higher accuracy in my results after factoring the data this way, which seems to confirm that this was a good decision.
+
+```{r, echo=FALSE}
+# summary
+summary(train)
+str(train)
+
+# NA count
+print(paste('Number of NAs:', sum(is.na(train)))) # Print NA count
+```
+
+## Graphs & Plots
+
+Plotting the data, we can see the relationships between various attributes (or lack thereof):
+
+In the two graphs below, we are seeking to observe for a relationship between the customer's demographics and their satisfaction. 
+
+In the left-hand graph, we can observe that females were generally more satisfied with their flights than dissatisfied, as opposed to males who were generally more dissatisfied than satisfied. This may make for a good point of prediction.
+
+In the right-hand graph, we can observe that those satisfied with their flight were, on average, older than those who were dissatisfied. However, the difference is very small, and the values fall within similar ranges, so it may not make for a good point of prediction.
+
+```{r, echo=FALSE}
+# graphs
+par(mfrow=c(1,2))
+## demographics in relation to satisfaction
+plot(train$Gender, train$satisfaction, xlab="Gender", ylab="Satisfaction")
+plot(train$satisfaction, train$Age, ylab="Age", xlab="Satisfaction")
+```
+
+Furthermore, in the next two graphs below, we are seeking to determine if there is a observe for a relationship between the customer's classifications and their satisfaction.
+
+In the left-hand graph, we can observe that loyal customers are significantly likely to be satisfied with their flight, while disloyal customers are significantly likely to be dissatisfied with their flight. The large difference may make a customer's loyalty a good predictor of satisfaction.
+
+In the right-hand graph, we can observe that customers in the Business class are very likely to be satisfied with their flight, while customers in the Eco (Plus) classes are comparatively less likely to be satisfied with their flight. While Eco and Eco Plus lie more near the 50/50 mark, the comparative difference between their satisfaction and the Business class's satisfaction may make for a good point of prediction.
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+## classifications in relation to satisfaction
+plot(train$Customer.Type, train$satisfaction, xlab="Customer Loyalty", ylab="Satisfaction")
+plot(train$Class, train$satisfaction, xlab="Class", ylab="Satisfaction")
+```
+
+Finally, in the last four graphs below, we are seeking to determine if there is any correlation between the customer's review ratings and their satisfaction.
+
+For obvious reasons, we can assume these will go hand-in-hand, but these graphs help show that generally, the lower the rating, the less likely people are to be satisfied, and the higher the rating, the more likely they are to be satisfied.
+
+This is not true for *all* ratings, however. Such as the bottom-left graph, which implies that Gate Location has little effect on the customer's satisfaction with their flight.
+
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+## in-flight experience in relation to satisfaction
+plot(train$Seat.comfort, train$satisfaction, xlab="Seat Comfort Rating", ylab="Satisfaction")
+plot(train$Inflight.entertainment, train$satisfaction, xlab="Entertainment Rating", ylab="Satisfaction")
+plot(train$Gate.location, train$satisfaction, xlab="Gate Location Rating", ylab="Satisfaction")
+plot(train$Inflight.wifi.service, train$satisfaction, xlab="WiFi Rating", ylab="Satisfaction")
+```
+
+# Models
+
+## Logistic Regression
+
+### Model Training
+
+```{r, echo=TRUE}
+# logistic regression model
+glm <- glm(satisfaction~Gender+Customer.Type+Type.of.Travel+Class+Seat.comfort+Leg.room.service
+    +Food.and.drink+Inflight.wifi.service+Inflight.entertainment+Departure.Arrival.time.convenient
+    +Flight.Distance+Departure.Delay.in.Minutes+Arrival.Delay.in.Minutes, data=train, family=binomial)
+
+# summary
+summary(glm)
+```
+
+### Model Predictions
+
+```{r, echo=FALSE}
+# glm predictions
+probs_glm <- predict(glm, newdata=test, type="response")
+pred_glm <- ifelse(probs_glm>0.5, "Satisfied", "Dissatisfied")
+acc_glm <- mean(pred_glm==test$satisfaction)
+
+# glm printout
+table(pred_glm, test$satisfaction)
+cat(paste("Accuracy: ", acc_glm))
+```
+
+## kNN
+
+### Model Training
+
+```{r, echo=TRUE}
+# kNN model
+pred_kNN <- knn(train=train_scaled, test=test_scaled, cl=train_labels, k=7)
+```
+
+### Model Predictions
+
+```{r, echo=FALSE}
+# kNN printout
+results_kNN <- pred_kNN == test_labels
+acc_kNN <- length(which(results_kNN==TRUE)) / length(results_kNN)
+
+table(results_kNN, pred_kNN)
+cat(paste("Accuracy: ", acc_kNN))
+```
+
+## Decision Tree
+
+### Model Training
+
+```{r, echo=TRUE}
+# decision tree model
+tree <- tree(satisfaction~., data=train)
+
+# summary
+summary(tree)
+```
+
+Note that, pruning the tree saw a consistent decrease in the model's accuracy.
+
+### Model Predictions
+
+```{r, echo=FALSE}
+# prune tree (results did not help the model)
+##cv_tree <- cv.tree(tree)
+##plot(cv_tree$size, cv_tree$dev, type='b')
+##tree_pruned <- prune.tree(tree, best=9)
+
+# make predictions
+pred_tree <- predict(tree, newdata=test, type="class")
+acc_tree <- mean(pred_tree==test$satisfaction)
+
+# tree printout
+table(pred_tree, test$satisfaction)
+cat(paste("Accuracy: ", acc_tree))
+```
+
+# Analysis
+
+Looking at the results of each algorithm, it's clear that kNN performed the best out of all of them.
+
+Knowing how each of the models work, it makes sense that kNN performed the best on this data set, as the columns that use the 0-5 Rating scale are all similar to each other, and are likely classified similarly, honing in on its accuracy. Whereas, the Decision Tree model likely overfitted the data (explaining its comparative inaccuracy), while the Logistic Regression model likely underfitted the data. Despite that, I was able to get both models to give very good prediction accuracies. But will this scale well with other variations of the data? If we are to believe that the models did in fact overfit/underfit the data as previously described, then probably not. However, this may not be the case with kNN, as its classification of the data may transfer over well into other variations of the data.

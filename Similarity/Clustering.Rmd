@@ -1,0 +1,120 @@
+---
+title: "Clustering"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+authors: Fernando Colman
+---
+
+This notebook will show how to perform 3 types of clustering on a dataset. KMeans Clustering, Hierarchical Clustering, and Model-Based Clustering. The dataset that is used is one that is already included with R, the "USArrests" dataset which measures how many people were incarcerated in a state and for which crime they were incarcerated for. First let's load some packages and took a look at our data.
+
+## Exploratory Data Analysis
+
+\
+Install necessary packages and load libraries.
+```{r message=FALSE}
+library(factoextra)
+library(cluster)
+library(mclust)
+```
+
+```{r}
+df <- USArrests
+names(df)
+plot(df$Murder, df$Assault)
+plot(df$Murder, df$UrbanPop)
+plot(df$Murder, df$Rape)
+plot(df$Assault, df$UrbanPop)
+plot(df$Assault, df$Rape)
+plot(df$Assault, df$Rape)
+plot(df$UrbanPop, df$Rape)
+which(is.na(df))
+df <- scale(df)
+head(df)
+```
+
+# KMeans Clustering
+
+To do KMeans Clustering, we first have to find an optimal number of clusters
+
+```{r}
+# Find the optimal number of clusters
+fviz_nbclust(df, kmeans, method = "wss")
+```
+
+Looking at the graph above, we're looking for a sharp turn or bend in the graph. A couple of spots stand out. Two, four, and five clusters all stand out as having bends in the Total Within Sum of Squares. However, four is the largest turn and earlier than five so let's go with four clusters. Knowing that, we can start to do our kmeans clustering.
+
+```{r}
+set.seed(1234)
+kmodel <- kmeans(df, centers = 4, nstart = 25)
+kmodel
+```
+
+Now that we've done our clustering we can better visualize which states were assigned to what clusters.
+
+```{r}
+fviz_cluster(kmodel, data = df)
+```
+
+# Hierarchical Clustering
+
+Hierarchical clustering is an alternative option to Kmeans and has some benefits like not needing to define the amount of clusters and also being able to produce a tree-like model of the data which we will see later. One feature of hierarchical clustering is that we can use many different methods to check the determine how close two clusters are. Each of these methods have different techniques which might work better or worse depending on the dataset. Here are the linkage methods that we will be examining.
+
+Complete linkage clustering: Find the max distance between points belonging to two different clusters.\
+Single linkage clustering: Find the minimum distance between points belonging to two different clusters.\
+Mean linkage clustering: Find all pairwise distances between points belonging to two different clusters and then calculate the average.\
+Ward's minimum variance method: Minimize the total
+
+```{r}
+# Label the different methods so that we can use all of them and compare which is the best fit for our dataset
+methodlabels <- c( "single", "average", "ward", "complete")
+names(methodlabels) <- c( "single", "average", "ward", "complete")
+ac <- function(x) {
+  agnes(df, method = x)$ac
+}
+
+# Print the computed agglomerative coefficient for each method. The closer to 1, the better the clusters.
+sapply(methodlabels, ac)
+```
+
+After examining some of the possible methods for linkage, we can see that ward's minimum variance is the best method so we'll use that one for our hierarchical clustering.
+
+```{r}
+compute_clusters <- agnes(df, method = "ward")
+pltree(compute_clusters, cex = 0.6, hang = -1, main = "Dendrogram") 
+```
+
+Above you can see what is called a "Dendogram" which basically produces all the possible clusters that the algorithm can according to height. Meaning that the larger the height then the less clusters there are. Since we calculated in the kmeans section that four clusters is the best for this algorithm we're going to cut down the dendogram to just 4 clusters. After we do that, we're going to add the cluster that each state belongs to back to the dataset so that we can see which cluster each state belongs to.
+
+```{r}
+onlyfour <- cutree(compute_clusters, k=4)
+hierar <- cbind(USArrests, cluster = onlyfour)
+head(hierar)
+```
+
+# Model-Based Clustering
+
+The model-based approach for clustering is basically going to use a great many different models and then compare them all to see which is the best. Since this method is so varied, it is also one of the easiest to implement since it requires almost no hyper-parameters from the user themselves. The only thing 
+
+```{r}
+model_based <- Mclust(df)
+plot(model_based)
+summary(model_based)
+```
+
+After running Mclust, we can see that the algorithm has decided that 3 components (clusters) work best for our dataset. The best model, which is determined by BIC, is a VEI model, meaning that it is diagonal with equal shape. Now let's try and visualize some of these plots that were created by the model and see some of the different models that were compared to find the best one.
+
+```{r}
+fviz_mclust(model_based, "BIC", palette = "jco")
+```
+\
+Next we will examine a plot of the actual components (clusters) that the VEI model found for our dataset. As well as another plot showing the uncertainty that each of these data points belongs to a particular cluster.
+
+```{r warning=FALSE}
+fviz_mclust(model_based, "classification", geom = "point", 
+            pointsize = 1.5, palette = "jco")
+fviz_mclust(model_based, "uncertainty", palette = "jco")
+```
+
+
