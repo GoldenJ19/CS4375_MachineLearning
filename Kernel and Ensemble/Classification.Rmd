@@ -1,0 +1,364 @@
+---
+title: "Classification"
+author: "Justin Hardy & Benjamin Frenkel"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r echo=FALSE, message=FALSE}
+# settings/library imports
+set.seed(1234)
+library(stringr)
+library(e1071)
+library(mltools)
+```
+
+# The Data Set
+
+Starting by reading in the data set. The data set we'll use for the assignment consists of data collected by an airline organization, over their customers' submitted satisfaction surveys, as well as relevant information about their flight and demographic.
+
+If you want to see the data set for yourself, you access the raw data [here](Invistico_Airline.csv), or the page where I collected it [online](https://www.kaggle.com/datasets/sjleshrac/airlines-customer-satisfaction).
+
+Please note that this part of the assignment reuses the data set used in the [Similarity](../Similarity) assignment.
+
+```{r, echo=TRUE}
+# Read data set
+CustomerData_raw <- read.csv("Invistico_Airline.csv")
+```
+
+We'll also remove 90% of the rows in the data set. We'll do this by removing 90% of the satisfied reviews, and 90% of the dissatisfied reviews, and combining what remains.
+
+We're doing this purely to make SVM run quicker, as otherwise, it'll take way too long to run.
+
+```{r, echo=TRUE}
+# Cut down data set, aiming for equal divide between satisfied/dissatisfied
+CustomerData_sat <- CustomerData_raw[CustomerData_raw$satisfaction == "satisfied",]
+CustomerData_sat <- CustomerData_sat[sample(1:nrow(CustomerData_sat), 
+                                            nrow(CustomerData_sat)*0.1, replace=FALSE),]
+CustomerData_dis <- CustomerData_raw[CustomerData_raw$satisfaction == "dissatisfied",]
+CustomerData_dis <- CustomerData_dis[sample(1:nrow(CustomerData_dis), 
+                                            nrow(CustomerData_dis)*0.1, replace=FALSE),]
+CustomerData <- rbind(CustomerData_sat[1:(nrow(CustomerData_sat)),], 
+                      CustomerData_dis[1:(nrow(CustomerData_dis)),])
+```
+
+# Cleaning Up The Data Set
+
+Cleaning up data set for logistic regression, by converting qualitative columns into factors.
+
+```{r, echo=TRUE}
+# Factor columns
+CustomerData$satisfaction <- factor(CustomerData$satisfaction) # satisfaction
+CustomerData$Gender <- factor(CustomerData$Gender) # gender
+CustomerData$Customer.Type <- factor(CustomerData$Customer.Type) # customer type
+CustomerData$Type.of.Travel <- factor(CustomerData$Type.of.Travel) # travel type
+CustomerData$Class <- factor(CustomerData$Class) # class
+
+# Normalize factor names
+levels(CustomerData$satisfaction) <- c("Dissatisfied", "Satisfied")
+levels(CustomerData$Customer.Type) <- c("Disloyal", "Loyal")
+levels(CustomerData$Type.of.Travel) <- c("Business", "Personal")
+
+# Continue factoring numeric finite columns
+for(i in 8:21) {
+  CustomerData[,i] <- 
+    factor(CustomerData[,i], levels=c(0,1,2,3,4,5)) # out-of-5 ratings
+}
+
+# Normalize column names
+names(CustomerData) <- gsub("\\.", " ", names(CustomerData))
+names(CustomerData) <- str_to_title(names(CustomerData))
+names(CustomerData) <- gsub("\\ ", ".", names(CustomerData))
+
+# Remove na rows
+CustomerData <- CustomerData[complete.cases(CustomerData),]
+```
+
+# Dividing Into Train/Test/Validate
+
+Dividing the data set into train/test/validate...
+
+```{r, echo=TRUE}
+#reset seed
+set.seed(1234)
+
+# train/test/validate division
+groups <- c(train=.6, test=.2, validate=.2)
+i <- sample(cut(1:nrow(CustomerData),
+                nrow(CustomerData)*cumsum(c(0,groups)), labels=names(groups)))
+train <- CustomerData[i=="train",]
+test <- CustomerData[i=="test",]
+validate <- CustomerData[i=="validate",]
+```
+<!-- Old code -->
+```{r, echo=FALSE}
+# train/test division
+#i <- sample(1:nrow(CustomerData), nrow(CustomerData)*0.8, replace=FALSE)
+#train <- CustomerData[i,]
+#test <- CustomerData[-i,]
+```
+
+# Data Exploration
+
+For this entire section, I've simply reused the data exploration I did in the previous assignment, since it is of the same application.
+
+## Structure
+
+Exploring the train data, we can see that each of our 0-5 Ratings were factored into levels of 6. The reason I opted to factor the data this way is because, although the values are numerical, they're a small finite set of integers. I also noticed higher accuracy in my results after factoring the data this way, which seems to confirm that this was a good decision.
+
+```{r, echo=FALSE}
+# summary
+summary(train)
+str(train)
+
+# NA count
+print(paste('Number of NAs:', sum(is.na(train)))) # Print NA count
+```
+
+## Graphs & Plots
+
+Plotting the data, we can see the relationships between various attributes (or lack thereof):
+
+In the two graphs below, we are seeking to observe for a relationship between the customer's demographics and their satisfaction. 
+
+In the left-hand graph, we can observe that females were generally more satisfied with their flights than dissatisfied, as opposed to males who were generally more dissatisfied than satisfied. This may make for a good point of prediction.
+
+In the right-hand graph, we can observe that those satisfied with their flight were, on average, older than those who were dissatisfied. However, the difference is very small, and the values fall within similar ranges, so it may not make for a good point of prediction.
+
+```{r, echo=FALSE}
+# graphs
+par(mfrow=c(1,2))
+## demographics in relation to satisfaction
+plot(train$Gender, train$Satisfaction, xlab="Gender", ylab="Satisfaction")
+plot(train$Satisfaction, train$Age, ylab="Age", xlab="Satisfaction")
+```
+
+Furthermore, in the next two graphs below, we are seeking to determine if there is a observe for a relationship between the customer's classifications and their satisfaction.
+
+In the left-hand graph, we can observe that loyal customers are significantly likely to be satisfied with their flight, while disloyal customers are significantly likely to be dissatisfied with their flight. The large difference may make a customer's loyalty a good predictor of satisfaction.
+
+In the right-hand graph, we can observe that customers in the Business class are very likely to be satisfied with their flight, while customers in the Eco (Plus) classes are comparatively less likely to be satisfied with their flight. While Eco and Eco Plus lie more near the 50/50 mark, the comparative difference between their satisfaction and the Business class's satisfaction may make for a good point of prediction.
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+## classifications in relation to satisfaction
+plot(train$Customer.Type, train$Satisfaction, xlab="Customer Loyalty", ylab="Satisfaction")
+plot(train$Class, train$Satisfaction, xlab="Class", ylab="Satisfaction")
+```
+
+Finally, in the last four graphs below, we are seeking to determine if there is any correlation between the customer's review ratings and their satisfaction.
+
+For obvious reasons, we can assume these will go hand-in-hand, but these graphs help show that generally, the lower the rating, the less likely people are to be satisfied, and the higher the rating, the more likely they are to be satisfied.
+
+This is not true for *all* ratings, however. Such as the bottom-left graph, which implies that Gate Location has little effect on the customer's satisfaction with their flight.
+
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+## in-flight experience in relation to satisfaction
+plot(train$Seat.Comfort, train$Satisfaction, xlab="Seat Comfort Rating", ylab="Satisfaction")
+plot(train$Inflight.Entertainment, train$Satisfaction, xlab="Entertainment Rating", ylab="Satisfaction")
+plot(train$Gate.Location, train$Satisfaction, xlab="Gate Location Rating", ylab="Satisfaction")
+plot(train$Inflight.Wifi.Service, train$Satisfaction, xlab="WiFi Rating", ylab="Satisfaction")
+```
+
+# Models
+
+## Model Training
+
+### SVM Linear
+
+```{r, echo=TRUE}
+svm1 <- svm(Satisfaction~., data=train, kernel="linear", cost=10, scale=TRUE)
+summary(svm1)
+```
+
+### SVM Polynomial
+
+```{r, echo=TRUE}
+svm2 <- svm(Satisfaction~., data=train, kernel="polynomial", cost=10, scale=TRUE)
+summary(svm2)
+```
+
+### SVM Radial
+
+```{r, echo=TRUE}
+svm3 <- svm(Satisfaction~., data=train, kernel="radial", cost=10, scale=TRUE)
+summary(svm3)
+```
+
+## Model Tuning
+
+### SVM Linear
+
+```{r, echo=TRUE}
+# Tune model
+tune_svm1 <- tune(svm, Satisfaction~., data=validate, kernel="linear", 
+                 ranges=list(cost=c(1, 5, 7, 10, 13, 15)))
+summary(tune_svm1)
+
+# Extract best model
+best_model_svm1 <- tune_svm1$best.model
+summary(best_model_svm1)
+```
+
+### SVM Polynomial
+
+```{r, echo=TRUE}
+# Tune model
+tune_svm2 <- tune(svm, Satisfaction~., data=validate, kernel="polynomial", 
+                 ranges=list(cost=c(0.01, 0.1, 0.5, 1, 2), 
+                             gamma=c(0.01, 0.025, 0.05, 0.075, 0.1)))
+summary(tune_svm2)
+
+# Extract best model
+best_model_svm2 <- tune_svm2$best.model
+summary(best_model_svm2)
+```
+
+### SVM Radial
+
+```{r, echo=TRUE}
+# Tune model
+tune_svm3 <- tune(svm, Satisfaction~., data=validate, kernel="radial", 
+                 ranges=list(cost=c(1, 5, 7, 10, 13, 15), 
+                             gamma=c(0.01, 0.025, 0.05, 0.075, 0.1)))
+summary(tune_svm3)
+
+# Extract best model
+best_model_svm3 <- tune_svm3$best.model
+summary(best_model_svm3)
+```
+
+## Model Predictions
+
+### SVM Linear
+
+Un-Tuned:
+
+```{r, echo=FALSE}
+# prediction
+pred_svm1 <- predict(svm1, newdata=test)
+
+# stats
+acc_svm1 <- mean(pred_svm1==test$Satisfaction)
+mcc_svm1 <- mcc(factor(pred_svm1), test$Satisfaction)
+
+# printout
+table(pred_svm1, test$Satisfaction)
+cat(paste("Accuracy: ", acc_svm1), paste("MCC: ", mcc_svm1), sep='\n')
+```
+
+Tuned:
+
+```{r, echo=FALSE}
+# prediction
+pred_svm1_t <- predict(best_model_svm1, newdata=test)
+
+# stats
+acc_svm1_t <- mean(pred_svm1_t==test$Satisfaction)
+mcc_svm1_t <- mcc(factor(pred_svm1_t), test$Satisfaction)
+
+# printout
+table(pred_svm1_t, test$Satisfaction)
+cat(paste("Accuracy: ", acc_svm1_t), paste("MCC: ", mcc_svm1_t), sep='\n')
+```
+
+### SVM Polynomial
+
+Un-Tuned:
+
+```{r, echo=FALSE}
+# prediction
+pred_svm2 <- predict(svm2, newdata=test)
+
+# stats
+acc_svm2 <- mean(pred_svm2==test$Satisfaction)
+mcc_svm2 <- mcc(factor(pred_svm2), test$Satisfaction)
+
+# printout
+table(pred_svm2, test$Satisfaction)
+cat(paste("Accuracy: ", acc_svm2), paste("MCC: ", mcc_svm2), sep='\n')
+```
+
+Tuned:
+
+```{r, echo=FALSE}
+# prediction
+pred_svm2_t <- predict(best_model_svm2, newdata=test)
+
+# stats
+acc_svm2_t <- mean(pred_svm2_t==test$Satisfaction)
+mcc_svm2_t <- mcc(factor(pred_svm2_t), test$Satisfaction)
+
+# printout
+table(pred_svm2_t, test$Satisfaction)
+cat(paste("Accuracy: ", acc_svm2_t), paste("MCC: ", mcc_svm2_t), sep='\n')
+```
+
+### SVM Radial
+
+Un-Tuned:
+
+```{r, echo=FALSE}
+# prediction
+pred_svm3 <- predict(svm3, newdata=test)
+
+# stats
+acc_svm3 <- mean(pred_svm3==test$Satisfaction)
+mcc_svm3 <- mcc(factor(pred_svm3), test$Satisfaction)
+
+# printout
+table(pred_svm3, test$Satisfaction)
+cat(paste("Accuracy: ", acc_svm3), paste("MCC: ", mcc_svm3), sep='\n')
+```
+
+Tuned:
+
+```{r, echo=FALSE}
+# prediction
+pred_svm3_t <- predict(best_model_svm3, newdata=test)
+
+# stats
+acc_svm3_t <- mean(pred_svm3_t==test$Satisfaction)
+mcc_svm3_t <- mcc(factor(pred_svm3_t), test$Satisfaction)
+
+# printout
+table(pred_svm3_t, test$Satisfaction)
+cat(paste("Accuracy: ", acc_svm3_t), paste("MCC: ", mcc_svm3_t), sep='\n')
+```
+
+# Analysis
+
+Looking at each of the above prediction results, we can observe a number of things about each kernel mode. We'll discuss the results of each kernel in individually.
+
+## Linear
+
+The un-tuned linear kernel SVM model utilized a cost of 10. We found that the model was able to predict with 90.5% accuracy in this un-tuned state.
+
+In the tuned model, I ran the model through numerous cost values at first, covering a wider scope, and ended up simplifying it down to a narrower scope surrounding 10 (+/-5 from it). The best model uses a cost of 10 under the validation data. We can observe that there is a slight improvement to the model's accuracy after tuning- predicting with 90.54% accuracy - however the improvement is very minimal and can be considered the same as the accuracy in the un-tuned model.
+
+The reason why there is even a difference at all is likely due to the fact that the validation data is smaller than that of the train data. It does seem to generalize hyperparameters well to the model, however, given the negligible difference in accuracy.
+
+## Polynomial
+
+The un-tuned polynomial kernel SVM model utilized a cost of 10, as well as the default gamma value of 1. We found that the model was able to predict with 90.58% accuracy in this un-tuned state, being similar to that of the un-tuned linear model.
+
+In the tuned model, I ran the model through numerous cost values at first, covering a wider scope, and ended up simplifying it down to a narrower scope, much like how I did for the previously discussed linear kernel. I did a similar thing for gamma values, and noticed the best value was more on the lower end (0.1), so I narrowed the range of it down from 0.01 through 0.1 for precision. The best model uses a cost of 1 and a gamma value of 0.075 under the validation data. We can observe that there is a notable improvement to the model's accuracy after tuning - predicting with 92.39% accuracy - and that there was a drop in both false positive and (especially) false negative rates.
+
+It's worth noting that the improvements are notable this time likely due to the considerable difference in both cost and gamma values from the un-tuned model. If we were to re-run the new values on the un-tuned model, we can expect the rates to improve further from our tuned model, due to the transition from utilizing a smaller validation data, to a larger train data.
+
+## Radial
+
+The un-tuned radial kernel SVM model utilized a cost of 10, as well as the default gamma value of 1. We found that the model was able to predict with 93.55% accuracy in this un-tuned state, which is a notable improvement to both of the previous un-tuned models.
+
+In the tuned model, I approached tuning the same way as I did for the polynomial kernel - seeking to narrow the cost and gamma values down as I saw results, for increased accuracy - stopping at a reasonable place. The best model uses a cost of 10 and a gamma value of 0.025 under the validation data. We can observe that there is a decline in the model's accuracy after tuning - predicting with 92.59% accuracy - and that there was an increase in false negative and (especially) false positive rates.
+
+I can only assume that the reason why the prediction accuracy is lower is because of the tuned model using a smaller selection of the data than the un-tuned model. I believe that if I were to run the un-tuned model using the best cost and gamma values observed by the tuned model, we'd observe an increase in model prediction accuracy rather than a decrease. I believe this tells us that for the radial kernel, the validation data does not do well at generalizing hyperparameters for the data as a whole.
+
+## Conclusion
+
+It's clear that both the Polynomial and Radial kernels are best suited for creating an SVM model on the data set, with both of those kernels having a consistently better prediction accuracy over linear.
+
+However, I believe Radial is best suitable overall due to the fact that, when you compare the un-tuned models and the tuned models separately between both kernels, you'll notice radial does consistently better at predicting overall. Additionally, the un-tuned radial model had the highest accuracy, which in my previous paragraph, I'd predicted would only be made higher by re-running the model using the better cost and gamma values that the tuned model utilized. Moreover, it makes sense for the Radial kernel to work best with the data set, due to the fact that the data set since the data is (presumably) not very linearly separable. Likely due to the nature of the out-of-5 rating data that's gathered, and how they're each fairly independent of one another.
