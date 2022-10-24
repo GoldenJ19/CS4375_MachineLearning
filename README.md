@@ -38,7 +38,7 @@ Notable File(s): <br/>
 
 This assignment involved utilizing similarity models such as kNN and Decision Trees to predict off of data. It also involves using clustering methods such as kMeans and Hierarchical Clustering, along with dimensionality reductions techniques such as LDA and PCA.
 
-This assignment was completed in a group of 2, consisting of Myself, Linus Fackler, Fernando Colman, and Isabelle Villegas. Each member worked on the Classification, Regression, Clustering, and Dimensionality Reduction portions of the assignment correspondingly.
+This assignment was completed in a group of 4, consisting of Myself, Linus Fackler, Fernando Colman, and Isabelle Villegas. Each member worked on the Classification, Regression, Clustering, and Dimensionality Reduction portions of the assignment correspondingly.
 
 Notable File(s): <br/>
 • [Write-Up](Similarity/Searching%20for%20Similarity.pdf) <br/>
@@ -50,3 +50,18 @@ Notable File(s): <br/>
 • [Code - Classification](Similarity/Classification.Rmd) <br/>
 • [Code - Clustering](Similarity/Clustering.Rmd) <br/>
 • [Code - Dimensionality Reduction](Similarity/DimensionalityReduction.Rmd) <br/>
+
+## Assignment 5 - Kernel and Ensemble Methods
+
+This assignment involved utilizing the SVM Linear Models and their various kernel modes to predict off of both classification and regression data sets. It also involves using various Ensemble Methods to build models for a classification data set.
+
+This assignment was completed in a group of 2, consisting of Myself and Benjamin Frenkel. I'd worked on the Classification and Ensemble Techniques portions of the assignment, while Benji worked on the Regression portion of the assignment.
+
+Notable File(s): <br/>
+• [Write-Up](Kernel%20and%20Ensemble/Kernel%20and%20Ensemble%20Writeup.pdf) <br/>
+• [Overview - Regression](Kernel%20and%20Ensemble/Regression.pdf) <br/>
+• [Overview - Classification](Kernel%20and%20Ensemble/Classification.pdf) <br/>
+• [Overview - Ensemble Techniques](Kernel%20and%20Ensemble/EnsembleTechniques.pdf) <br/>
+• [Code - Regression](Kernel%20and%20Ensemble/Regression.Rmd) <br/>
+• [Code - Classification](Kernel%20and%20Ensemble/Classification.Rmd) <br/>
+• [Code - Ensemble Techniques](Kernel%20and%20Ensemble/EnsembleTechniques.Rmd) <br/>
