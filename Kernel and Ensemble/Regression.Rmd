@@ -1,0 +1,162 @@
+---
+title: "SVM Regression"
+author: "Benjamin Frenkel & Justin Hardy"
+output: pdf_document
+---
+
+# Load packages
+```{r}
+library(e1071)
+library(MASS)
+```
+
+# Read in the data set file
+```{r, echo=TRUE}
+Data <- read.csv("Housing Price Predictions.csv")
+
+#take only the first 10,000 rows
+Data <- Data[1:10000,]
+
+```
+
+# Clean data
+```{r, echo=TRUE}
+
+#Factor columns (columns with only a few possible values)
+Data$POSTED_BY <- factor(Data$POSTED_BY)
+Data$UNDER_CONSTRUCTION <- factor(Data$UNDER_CONSTRUCTION)
+Data$BHK_OR_RK <- factor(Data$BHK_OR_RK)
+Data$RERA <- factor (Data$RERA)
+Data$READY_TO_MOVE <- factor(Data$READY_TO_MOVE)
+Data$RESALE <- factor(Data$RESALE)
+
+#Remove useless columns
+Data <- subset(Data, select = -c(ADDRESS))
+
+#Rename columns if needed
+names(Data) [names(Data) == 'TARGET.PRICE_IN_LACS.'] <- "PRICE_IN_LACS"
+
+#Delete NA rows
+Data <- Data[complete.cases(Data),]
+
+```
+
+# Divide into train/test/validate
+```{r, echo=TRUE}
+set.seed(1234)
+group <- c(train=.6, test=.2, validate=.2)
+i <- sample(cut(1:nrow(Data), nrow(Data)*cumsum(c(0, group)), labels=names(group)))
+
+train <- Data[i=="train",]
+test <- Data[i=="test",]
+vald <- Data[i=="validate",]
+```
+
+# Data Exploration
+
+## Structure
+```{r, echo=TRUE}
+summary(train)
+```
+
+
+## Graphs & Plots
+
+```{r, echo=TRUE}
+par(mfrow=c(1,2))
+plot(train$UNDER_CONSTRUCTION, train$PRICE_IN_LACS, xlab="Under Construction", ylab="Price in Lacs")
+```
+There does not appear to be much of a correlation between whether a house is under construction or not and its price.
+
+
+
+
+```{r, echo=TRUE}
+par(mfrow=c(1,2))
+plot(train$SQUARE_FT, train$PRICE_IN_LACS, xlab="Square Ft.", ylab="Price in Lacs")
+```
+Aside for a few outliers there seems to be a good correlation between the square ft. of the house and its price, generally as square ft. increases price increases.
+
+
+
+
+
+```{r, echo=TRUE}
+par(mfrow=c(1,2))
+plot(train$READY_TO_MOVE, train$PRICE_IN_LACS, xlab="Ready to Move", ylab="Price in Lacs")
+```
+The factor of whether the house is ready to move into or not seems to have a decent correlation with the price of the house. The house being ready to move into generally correlates to the price being slightly higher than if it was not ready to move into.
+
+
+# Models
+
+
+## Linear Kernel
+```{r, echo=TRUE}
+svm1 <- svm(PRICE_IN_LACS~., data=train, kernel="linear", cost=10, scale=TRUE)
+summary(svm1)
+pred <- predict(svm1, newdata=test)
+cor_svm1 <- cor(pred, test$PRICE_IN_LACS)
+mse_svm1 <- mean((pred - test$PRICE_IN_LACS)^2)
+
+cat(paste("Correlation: ", cor_svm1), paste("MSE: ", mse_svm1), sep='\n')
+```
+
+
+## Tune
+```{r}
+tune_svm1 <- tune(svm, PRICE_IN_LACS~., data=vald, kernel="linear",
+                  ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
+summary(tune_svm1)
+```
+
+
+## Evaluate on best linear svm
+```{r}
+pred <- predict(tune_svm1$best.model, newdata=test)
+cor_svm1_tune <- cor(pred, test$PRICE_IN_LACS)
+mse_svm1_tune <- mean((pred - test$PRICE_IN_LACS)^2)
+```
+
+## Try a polynomial kernel
+```{r}
+svm2 <- svm(PRICE_IN_LACS~., data=train, kernel="polynomial", cost=10, scale=TRUE)
+summary(svm2)
+pred <- predict(svm2, newdata=test)
+cor_svm2 <- cor(pred, test$PRICE_IN_LACS)
+mse_svm2 <- mean((pred - test$PRICE_IN_LACS)^2)
+
+cat(paste("Correlation: ", cor_svm2), paste("MSE: ", mse_svm2), sep='\n')
+```
+
+## Try a radial kernel
+```{r}
+svm3 <- svm(PRICE_IN_LACS~., data=train, kernel="radial", cost=10, gamma=1, scale=TRUE)
+summary(svm3)
+pred <- predict(svm3, newdata=test)
+cor_svm3 <- cor(pred, test$PRICE_IN_LACS)
+mse_svm3 <- mean((pred - test$PRICE_IN_LACS)^2)
+
+cat(paste("Correlation: ", cor_svm3), paste("MSE: ", mse_svm3), sep='\n')
+```
+
+## Tune hyperperameters
+```{r}
+set.seed(1234)
+tune.out <- tune(svm, PRICE_IN_LACS~., data=vald, kernel="radial",
+                 ranges=list(cost=c(0.1,1,10,100,1000),
+                             gamma=c(0.5,1,2,3,4)))
+summary(tune.out)
+svm4 <- svm(PRICE_IN_LACS~., data=train, kernel="radial", cost=100, gamma=0.5, scale=TRUE)
+summary(svm4)
+pred <- predict(svm4, newdata=test)
+cor_svm4 <- cor(pred, test$PRICE_IN_LACS)
+mse_svm4 <- mean((pred - test$PRICE_IN_LACS)^2)
+```
+
+# Analysis
+In this regression section of the assignment, three SVM regressions were performed on the data. Linear kernel, polynomial kernel, and radial kernel. Of the three types of SVM regression svm2 (Polynomial kernel) had the highest correlation. This is likely due to the data not being linearly separable, so the linear kernel is not the best choice of model for the data.
+
+Now, between linear kernel and radial kernel, linear kernel has a much higher correlation than radial kernel. So, while polynomial has the best correlation, linear kernel is clearly second best, and radial kernel is the worst.
+
+The mean squared error lines up with the correlation as polynomial kernel has the lowest MSE, followed by linear kernel, and with radial kernel having the highest MSE.
