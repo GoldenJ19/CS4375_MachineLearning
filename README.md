@@ -65,3 +65,11 @@ Notable File(s): <br/>
 • [Code - Regression](Kernel%20and%20Ensemble/Regression.Rmd) <br/>
 • [Code - Classification](Kernel%20and%20Ensemble/Classification.Rmd) <br/>
 • [Code - Ensemble Techniques](Kernel%20and%20Ensemble/EnsembleTechniques.Rmd) <br/>
+
+## Assignment 6 - Machine Learning with SKLearn
+
+This assignment involved exploring machine learning on a data set provided to use using Python's SKLearn library. Most notably, we explore Neural Networks in this assignment, and experiment with various topologies of Neural Networks.
+
+Notable File(s): <br/>
+• [Overview](ML%20With%20SKLearn/MLWithSKLearn.pdf) <br/>
+• [Code](ML%20With%20SKLearn/MLWithSKLearn.ipynb) <br/>
