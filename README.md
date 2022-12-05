@@ -73,3 +73,11 @@ This assignment involved exploring machine learning on a data set provided to us
 Notable File(s): <br/>
 • [Overview](ML%20With%20SKLearn/MLWithSKLearn.pdf) <br/>
 • [Code](ML%20With%20SKLearn/MLWithSKLearn.ipynb) <br/>
+
+## Assignment 7 - Image Classification
+
+This assignment involved exploring machine learning on an image data set using Python's TensorFlow library. In other words, this assignment revolved around Image Classification.
+
+Notable File(s): <br/>
+• [Overview](Image%20Classification/ImageClassification.pdf) <br/>
+• [Code](Image%20Classification/ImageClassification.ipynb) <br/>
